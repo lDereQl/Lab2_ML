@@ -1,67 +1,80 @@
 import numpy as np
-import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.datasets import fetch_california_housing
-from sklearn.metrics import mean_squared_error, mean_absolute_error
-from tqdm import tqdm
+from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
 from random_forest_custom_4 import RandomForestRegressorCustom
+from sklearn.ensemble import RandomForestRegressor
 
-from decision_tree_custom_2 import DecisionTreeRegressorCustom
+# Load dataset (replace with actual file paths or data loading process)
+X_train = np.load('X_train.npy')
+y_train = np.load('y_train.npy')
+X_test = np.load('X_test.npy')
+y_test = np.load('y_test.npy')
 
-# Load California Housing dataset
-# Data placeholders (replace with actual dataset)
-data = pd.read_csv("train_data_final.csv")
-if data.isnull().sum().any():
-    print("Dataset contains NaN values. Handling missing data.")
-    data = data.dropna()  # Or handle missing data with an imputation strategy
-data_test= pd.read_csv("test_data_final.csv")
-if data_test.isnull().sum().any():
-    print("Dataset contains NaN values. Handling missing data.")
-    data = data.dropna()  # Or handle missing data with an imputation strategy
-X_train = data.drop(columns=["cnt"]).values
-y_train = data["cnt"].values
-X_test = data_test.drop(columns=["cnt"]).values
-y_test = data_test["cnt"].values
+# Best Parameters
+best_params = {
+    'n_estimators': 15,
+    'max_depth': 15,
+    'min_samples_split': 10
+}
 
-# Initialize Custom Random Forest
-model = RandomForestRegressorCustom(
-    n_estimators=10,  # Number of trees
-    max_depth=5,  # Maximum depth of each tree
-    min_samples_split=2,  # Minimum samples to split
-    max_features="sqrt",  # Feature selection strategy
-    random_state=42  # For reproducibility
+# Train Custom Random Forest
+custom_rf = RandomForestRegressorCustom(
+    n_estimators=best_params['n_estimators'],
+    max_depth=best_params['max_depth'],
+    min_samples_split=best_params['min_samples_split'],
+    random_state=42
 )
+custom_rf.fit(X_train, y_train)
+
+# Predict using Custom Random Forest
+y_pred_custom = custom_rf.predict(X_test)
+
+# Evaluate Custom Random Forest
+custom_mse = mean_squared_error(y_test, y_pred_custom)
+custom_mae = mean_absolute_error(y_test, y_pred_custom)
+custom_r2 = r2_score(y_test, y_pred_custom)
+
+print("Custom Random Forest:")
+print(f"MSE: {custom_mse:.2f}")
+print(f"MAE: {custom_mae:.2f}")
+print(f"R^2: {custom_r2:.2f}")
+
+# Train Scikit-learn Random Forest
+sklearn_rf = RandomForestRegressor(
+    n_estimators=best_params['n_estimators'],
+    max_depth=best_params['max_depth'],
+    min_samples_split=best_params['min_samples_split'],
+    random_state=42
+)
+sklearn_rf.fit(X_train, y_train)
+
+# Predict using Scikit-learn Random Forest
+y_pred_sklearn = sklearn_rf.predict(X_test)
+
+# Evaluate Scikit-learn Random Forest
+sklearn_mse = mean_squared_error(y_test, y_pred_sklearn)
+sklearn_mae = mean_absolute_error(y_test, y_pred_sklearn)
+sklearn_r2 = r2_score(y_test, y_pred_sklearn)
+
+print("\nScikit-learn Random Forest:")
+print(f"MSE: {sklearn_mse:.2f}")
+print(f"MAE: {sklearn_mae:.2f}")
+print(f"R^2: {sklearn_r2:.2f}")
+
+# Display Predicted vs Actual Values (10 examples)
+print("\nPredicted vs Actual Values (Custom vs Sklearn):")
+for i in range(10):
+    print(f"Actual: {y_test[i]:.2f} | Custom: {y_pred_custom[i]:.2f} | Sklearn: {y_pred_sklearn[i]:.2f}")
+
+# Interactive Input Functionality
+def predict_input(model_custom, model_sklearn):
+    print("\nEnter feature values for prediction (comma-separated):")
+    user_input = input()
+    features = np.array([float(x) for x in user_input.split(",")]).reshape(1, -1)
+
+    pred_custom = model_custom.predict(features)[0]
+    pred_sklearn = model_sklearn.predict(features)[0]
+
+    print(f"Custom Model Prediction: {pred_custom:.2f}")
+    print(f"Scikit-learn Model Prediction: {pred_sklearn:.2f}")
 
 
-# Progress Bar Enhancement
-def fit_with_progress(model, X, y):
-    """Fits the Random Forest with a progress bar."""
-    np.random.seed(model.random_state)
-    model.trees = []
-
-    for _ in tqdm(range(model.n_estimators), desc="Training Random Forest"):
-        X_sample, y_sample = model._bootstrap_sample(X, y)
-        feature_indices = model._feature_subset(X_sample)
-
-        tree = DecisionTreeRegressorCustom(
-            max_depth=model.max_depth,
-            min_samples_split=model.min_samples_split,
-            random_state=model.random_state
-        )
-        tree.fit(X_sample[:, feature_indices], y_sample)
-        model.trees.append((tree, feature_indices))
-
-
-# Use the updated fit method
-model.fit = lambda X, y: fit_with_progress(model, X, y)
-
-# Train the model
-model.fit(X_train, y_train)
-
-# Predict and Evaluate
-y_pred = model.predict(X_test)
-mse = mean_squared_error(y_test, y_pred)
-mae = mean_absolute_error(y_test, y_pred)
-
-print(f"Mean Squared Error (MSE): {mse}")
-print(f"Mean Absolute Error (MAE): {mae}")
