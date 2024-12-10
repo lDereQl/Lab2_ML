@@ -2,25 +2,21 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
 
-
 # Custom metric implementations
 def calculate_mse(y_true, y_pred):
     if len(y_true) == 0:
         return np.nan
     return np.mean((y_true - y_pred) ** 2)
 
-
 def calculate_mae(y_true, y_pred):
     if len(y_true) == 0:
         return np.nan
     return np.mean(np.abs(y_true - y_pred))
 
-
 def calculate_mape(y_true, y_pred):
-    if len(y_true) == 0 or np.any(y_true == 0):
+    if len(y_true) == 0 or np.all(y_true == 0):
         return np.nan
-    return np.mean(np.abs((y_true - y_pred) / y_true)) * 100
-
+    return np.mean(np.abs((y_true - y_pred) / (y_true + 1e-5))) * 100  # Avoid division by zero
 
 class DecisionTreeRegressorCustom:
     def __init__(self, max_depth=None, min_samples_split=2):
@@ -29,6 +25,8 @@ class DecisionTreeRegressorCustom:
         self.tree = None
 
     def _mse(self, y):
+        if len(y) == 0:
+            return 0
         return np.mean((y - np.mean(y)) ** 2)
 
     def _best_split(self, X, y):
@@ -45,7 +43,6 @@ class DecisionTreeRegressorCustom:
             cumulative_sq_sum = np.cumsum(y_sorted ** 2)
 
             for i in range(1, n_samples):
-                # Skip if this split is not actually dividing into different values
                 if X_sorted[i, feature_index] == X_sorted[i - 1, feature_index]:
                     continue
 
@@ -64,19 +61,18 @@ class DecisionTreeRegressorCustom:
                 mse_split = (n_left * mse_left + n_right * mse_right) / n_samples
 
                 if mse_split < best_mse:
-                    # Using midpoint as threshold:
                     threshold = (X_sorted[i, feature_index] + X_sorted[i - 1, feature_index]) / 2
                     best_feature, best_threshold, best_mse = feature_index, threshold, mse_split
 
         return best_feature, best_threshold
 
     def _build_tree(self, X, y, depth=0):
-        # Check stopping conditions
+        if len(y) == 0:
+            return np.nan  # Handle empty datasets gracefully
+
         if self.max_depth is not None and depth >= self.max_depth:
             return np.mean(y)
-        if len(y) < self.min_samples_split:
-            return np.mean(y)
-        if self._mse(y) == 0:
+        if len(y) < self.min_samples_split or self._mse(y) == 0:
             return np.mean(y)
 
         best_feature, best_threshold = self._best_split(X, y)
@@ -105,12 +101,10 @@ class DecisionTreeRegressorCustom:
                 tree = tree["left"]
             else:
                 tree = tree["right"]
-        return tree
+        return np.nan if tree is None else tree
 
     def predict(self, X):
         return np.array([self._predict_sample(sample, self.tree) for sample in X])
-
-
 
 def print_tree(tree, depth=0, max_depth=3):
     if depth > max_depth:
@@ -121,7 +115,6 @@ def print_tree(tree, depth=0, max_depth=3):
         print_tree(tree['right'], depth + 1, max_depth)
     else:
         print("  " * depth + f"Prediction: {tree:.2f}")
-
 
 # Testing the refactored tree with custom metrics
 if __name__ == "__main__":

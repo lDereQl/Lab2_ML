@@ -12,6 +12,10 @@ min_samples_split_list = [10, 20, 50]
 
 # Data placeholders (replace with actual dataset)
 data = pd.read_csv("train_data_final.csv")
+if data.isnull().sum().any():
+    print("Dataset contains NaN values. Handling missing data.")
+    data = data.dropna()  # Or handle missing data with an imputation strategy
+
 X_train = data.drop(columns=["cnt"]).values
 y_train = data["cnt"].values
 # Prepare for cross-validation
@@ -41,7 +45,8 @@ for n_estimators in n_estimators_list:
 
                 # Predict and evaluate
                 y_pred = model.predict(X_val)
-                fold_mse.append(mean_squared_error(y_val, y_pred))
+                valid_indices = ~np.isnan(y_pred)
+                fold_mse.append(mean_squared_error(y_val[valid_indices], y_pred[valid_indices]))
 
             # Store results
             avg_mse = np.mean(fold_mse)
