@@ -1,22 +1,23 @@
 import numpy as np
 import pandas as pd
+from sklearn.metrics import mean_squared_error, mean_absolute_error
 from sklearn.model_selection import KFold
 
-# Custom metric implementations
+
+
 def calculate_mse(y_true, y_pred):
-    if len(y_true) == 0:
-        return np.nan
-    return np.mean((y_true - y_pred) ** 2)
+    return mean_squared_error(y_true, y_pred)
+
 
 def calculate_mae(y_true, y_pred):
-    if len(y_true) == 0:
-        return np.nan
-    return np.mean(np.abs(y_true - y_pred))
+    return mean_absolute_error(y_true, y_pred)
+
 
 def calculate_mape(y_true, y_pred):
     if len(y_true) == 0 or np.all(y_true == 0):
         return np.nan
     return np.mean(np.abs((y_true - y_pred) / (y_true + 1e-5))) * 100  # Avoid division by zero
+
 
 class DecisionTreeRegressorCustom:
     def __init__(self, max_depth=None, min_samples_split=2):
@@ -106,6 +107,7 @@ class DecisionTreeRegressorCustom:
     def predict(self, X):
         return np.array([self._predict_sample(sample, self.tree) for sample in X])
 
+
 def print_tree(tree, depth=0, max_depth=3):
     if depth > max_depth:
         return
@@ -115,6 +117,7 @@ def print_tree(tree, depth=0, max_depth=3):
         print_tree(tree['right'], depth + 1, max_depth)
     else:
         print("  " * depth + f"Prediction: {tree:.2f}")
+
 
 # Testing the refactored tree with custom metrics
 if __name__ == "__main__":

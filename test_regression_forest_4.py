@@ -1,13 +1,20 @@
 import numpy as np
+import pandas as pd
+from sklearn.impute import SimpleImputer
 from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-from random_forest_custom_4 import RandomForestRegressorCustom
+from random_forest_regression_custom_4 import RandomForestRegressorCustom
 from sklearn.ensemble import RandomForestRegressor
 
-# Load dataset (replace with actual file paths or data loading process)
-X_train = np.load('X_train.npy')
-y_train = np.load('y_train.npy')
-X_test = np.load('X_test.npy')
-y_test = np.load('y_test.npy')
+# Load and clean data
+data = pd.read_csv("train_data_final.csv")
+data_test = pd.read_csv("test_data_final.csv")
+
+# Handle missing values
+imputer = SimpleImputer(strategy="mean")
+X_train = imputer.fit_transform(data.drop(columns=["cnt"]))
+y_train = data["cnt"].values
+X_test = imputer.transform(data_test.drop(columns=["cnt"]))
+y_test = data_test["cnt"].values
 
 # Best Parameters
 best_params = {
@@ -27,6 +34,11 @@ custom_rf.fit(X_train, y_train)
 
 # Predict using Custom Random Forest
 y_pred_custom = custom_rf.predict(X_test)
+
+# Check for NaN in predictions
+if np.any(np.isnan(y_pred_custom)):
+    print("Warning: NaN values in custom predictions. Replacing with 0.")
+    y_pred_custom = np.nan_to_num(y_pred_custom)
 
 # Evaluate Custom Random Forest
 custom_mse = mean_squared_error(y_test, y_pred_custom)
@@ -65,16 +77,36 @@ print("\nPredicted vs Actual Values (Custom vs Sklearn):")
 for i in range(10):
     print(f"Actual: {y_test[i]:.2f} | Custom: {y_pred_custom[i]:.2f} | Sklearn: {y_pred_sklearn[i]:.2f}")
 
+
 # Interactive Input Functionality
 def predict_input(model_custom, model_sklearn):
-    print("\nEnter feature values for prediction (comma-separated):")
-    user_input = input()
-    features = np.array([float(x) for x in user_input.split(",")]).reshape(1, -1)
+    """Interactive input functionality for user predictions."""
+    if not hasattr(model_custom, 'n_features') or model_custom.n_features is None:
+        print("Error: Custom model is not trained. Train the model before making predictions.")
+        return
 
-    pred_custom = model_custom.predict(features)[0]
-    pred_sklearn = model_sklearn.predict(features)[0]
+    expected_features = model_custom.n_features
+    print(f"\nEnter {expected_features} feature values for prediction (comma-separated):")
+    try:
+        # Take user input and convert to numpy array
+        user_input = input("Enter values: ")
+        features = np.array([float(x) for x in user_input.split(",")]).reshape(1, -1)
 
-    print(f"Custom Model Prediction: {pred_custom:.2f}")
-    print(f"Scikit-learn Model Prediction: {pred_sklearn:.2f}")
+        # Check if input matches the expected number of features
+        if features.shape[1] != expected_features:
+            print(f"Error: Expected {expected_features} features but received {features.shape[1]}.")
+            return
+
+        # Predictions
+        pred_custom = model_custom.predict(features)[0]
+        pred_sklearn = model_sklearn.predict(features)[0]
+
+        # Display predictions
+        print(f"Custom Model Prediction: {pred_custom:.2f}")
+        print(f"Scikit-learn Model Prediction: {pred_sklearn:.2f}")
+    except ValueError:
+        print("Invalid input! Ensure all values are numeric.")
 
 
+# Interactive Input
+predict_input(custom_rf, sklearn_rf)
